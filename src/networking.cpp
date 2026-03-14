@@ -22,83 +22,46 @@ NET::serverSocket::serverSocket(int family, int type, int protocol){
         throw std::runtime_error("Unable to bind server socket\n");
     }
 
-    if (listen(m_socket, SOMAXCONN) == -1){
-        throw std::runtime_error("Server unable to listen for clients\n");
-    }
-    std::cout << "Server socket bound and looking for clients at port: " << m_port << std::endl;
+    int flags = fcntl(m_socket, F_GETFL, 0);
+    fcntl(m_socket, F_SETFL, flags | O_NONBLOCK);
 
-
-    pollfd server_fd;
-    server_fd.fd = m_socket;
-    server_fd.events = POLLIN;
-
-    m_fds.push_back(server_fd);
+    std::cout << "Server bound at port: " << m_port << std::endl;
 }
 
 NET::serverSocket::~serverSocket(){
-    for (auto& pfd: m_fds){
-        if (pfd.fd != -1){
-            close(pfd.fd);
-        }
-    }
-}
-
-void NET::serverSocket::acceptConnection(){
-    int acceptSocket = accept(m_socket, NULL, NULL);
-
-    if (acceptSocket == -1){
-        std::cerr << "Unable to connect to client" << std::endl;
-    }
-    else{
-        std::cout << "Connected to client successfully" << std::endl;
-
-        pollfd accept_fd;
-        accept_fd.fd = acceptSocket;
-        accept_fd.events = POLLIN;
-
-        m_fds.push_back(accept_fd);
-    }
+    close(m_socket);
 }
 
 void NET::serverSocket::pollNetwork(){
-    int activity = poll(m_fds.data(), m_fds.size(), 0);
-    if (activity == -1){
-        std::cerr << "Polling failed" << std::endl;
-        return;
-    }
+    char buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
 
-    for (int i = 0; i < (int)m_fds.size(); i++){
-        if (m_fds[i].revents == 0){
-            continue;
-        }
+    sockaddr_in clientAddr;
+    socklen_t clientLen = sizeof(clientAddr);
 
-        if (m_fds[i].fd == m_socket){
-            // New connection
-            acceptConnection();
-        }
-        else{
-            // Existing player sent some data
-            char buffer[1024];
-            memset(buffer, 0, sizeof(buffer));
-            
-            int bytesRecieved = recv(m_fds[i].fd, buffer, sizeof(buffer) - 1, 0);
+    int recievedBytes = recvfrom(m_socket, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&clientAddr, &clientLen);
 
-            if (bytesRecieved > 0){
-                NetworkMessage message;
-                message.cliend_fd = m_fds[i].fd;
-                message.payload = std::string(buffer, bytesRecieved);
-
-                m_messageQueue.push(message);
-            }
-            else if (bytesRecieved == 0){
-                close(m_fds[i].fd);
-                m_fds.erase(m_fds.begin() + i);
-                i--;
-            }
-            else{
-                std::cerr << "Error recieving data" << std::endl;
+    if (recievedBytes > 0){
+        int playerID = 0;
+        for (int i = 0; i < (int)m_clients.size(); i++) {
+            if (m_clients[i].sin_port == clientAddr.sin_port) {
+                playerID = i + 1; // Player 1 or Player 2
+                break;
             }
         }
+
+        if (playerID == 0 && (int)m_clients.size() < 2){
+            m_clients.push_back(clientAddr);
+            m_clientID[clientAddr] = playerID;
+
+            std::cout << "Player joined! Total players: " << (int)m_clients.size() << std::endl;
+        }
+
+        NetworkMessage message;
+        message.client_fd = playerID;
+        message.payload = std::string(buffer, recievedBytes);
+
+        m_messageQueue.push(message);
     }
 }
 
@@ -107,6 +70,65 @@ NetworkMessage NET::serverSocket::getMessage(){
     m_messageQueue.pop();
 
     return message;
+}
+
+bool NET::serverSocket::sendMessage(int ID, const std::string& message){
+    if (m_clients.empty()){
+        return false;
+    }
+
+    for (const auto& clientAddr: m_clients){
+        if (m_clientID[clientAddr] == ID){
+            int bytesSent = sendto(m_socket, message.c_str(), message.length(), 0, (sockaddr*)& clientAddr, sizeof(clientAddr));
+
+            if (bytesSent == -1){
+                std::cerr << "Unable to send data to client" << std::endl;
+                return false;
+            }
+            
+            break;
+        }
+    }
+
+    return true;
+}
+
+bool NET::serverSocket::sendMessageExcept(int ID, const std::string& message){
+    if (m_clients.empty()){
+        return false;
+    }
+
+    bool success = true;
+    for (const auto& clientAddr: m_clients){
+        if (m_clientID[clientAddr] != ID){
+            int bytesSent = sendto(m_socket, message.c_str(), message.length(), 0, (sockaddr*)& clientAddr, sizeof(clientAddr));
+
+            if (bytesSent == -1){
+                std::cerr << "Unable to send data to a client" << std::endl;
+                success = false;
+            }
+        }
+    }
+
+    return success;
+}
+
+bool NET::serverSocket::sendMessageEveryone(const std::string &message){
+    if (m_clients.empty()){
+        return false;
+    }
+
+    bool success = true;
+    for (const auto& clientAddr: m_clients){
+        int bytesSent = sendto(m_socket, message.c_str(), message.length(), 0, (sockaddr*)& clientAddr, sizeof(clientAddr));
+
+        if (bytesSent == -1){
+            std::cerr << "Unable to send data to a client" << std::endl;
+            success = false;
+        }
+    }
+
+    return success;
 }
 
 const int NET::serverSocket::getPort() const{
@@ -133,35 +155,37 @@ NET::clientSocket::~clientSocket(){
 }
 
 bool NET::clientSocket::connectServer() const{
-    sockaddr_in service;
-    service.sin_family = m_family;
-    inet_pton(m_family, "127.0.0.1", &service.sin_addr); // Might have to change IP as well
-    service.sin_port = htons(m_port);
-
-    if (connect(m_socket, (sockaddr*)&service, sizeof(service)) == -1){
-        std::cerr << "Unable to connect to server" << std::endl;
-        return false;
-    }
-
     int flags = fcntl(m_socket, F_GETFL, 0);
     if (fcntl(m_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
         std::cerr << "Failed to set socket to non-blocking" << std::endl;
     }
     
-    std::cout << "Connected to server successfully" << std::endl;
+    std::cout << "Client socket initialized and ready to send UDP packets!" << std::endl;
     return true;
 }
 
-bool NET::clientSocket::sendData(const std::string &message)
-{
-    std::string formattedMessage = message + "$"; // Separate messages by '$'
-    
-    int bytesSent = send(m_socket, formattedMessage.c_str(), formattedMessage.length(), 0);
+NetworkMessage NET::clientSocket::getData(){
+    char buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
 
-    if (bytesSent == -1) {
-        std::cerr << "Failed to send data to server." << std::endl;
-        return false;
+    int recievedBytes = recv(m_socket, buffer, sizeof(buffer) - 1, 0);
+
+    NetworkMessage msg;
+    if (recievedBytes > 0){
+       msg.payload = std::string(buffer, recievedBytes);
     }
-    
-    return true;
+
+    return msg;
+}
+
+bool NET::clientSocket::sendData(const std::string &message) {
+    // We recreate the destination address right here
+    sockaddr_in destAddr;
+    destAddr.sin_family = m_family;
+    inet_pton(m_family, "127.0.0.1", &destAddr.sin_addr);
+    destAddr.sin_port = htons(m_port);
+
+    int bytesSent = sendto(m_socket, message.c_str(), message.length(), 0, (sockaddr*)&destAddr, sizeof(destAddr));
+
+    return (bytesSent != -1);
 }
