@@ -44,11 +44,13 @@ namespace NET{
         private:
         int m_socket;
         int m_port;
+        int m_family;
 
         public:
         clientSocket(int family, int type, int protocol);
         ~clientSocket();
 
+        bool connectServer() const;
         bool sendData(const std::string& message);
     };
 }

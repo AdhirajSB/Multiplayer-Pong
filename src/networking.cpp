@@ -119,28 +119,12 @@ const bool NET::serverSocket::hasMessages() const{
 
 
 NET::clientSocket::clientSocket(int family, int type, int protocol){
-    int port = 5555; // Will have to look into this later (deployment time)
-    
+    m_port = 5555; // Will have to look into this later (deployment time)
     m_socket = socket(family, type, protocol);
+    m_family = family;
+
     if (m_socket == -1){
         throw std::runtime_error("Unable to create client socket\n");
-    }
-
-    sockaddr_in service;
-    service.sin_family = family;
-    inet_pton(family, "127.0.0.1", &service.sin_addr); // Might have to change IP as well
-    service.sin_port = htons(port);
-
-    if (connect(m_socket, (sockaddr*)&service, sizeof(service)) == -1){
-        throw std::runtime_error("Unable to bind client socket\n");
-    }
-
-    std::cout << "Connected to server successfully" << std::endl;
-
-    // This makes the recv() non-blocking
-    int flags = fcntl(m_socket, F_GETFL, 0);
-    if (fcntl(m_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-        throw std::runtime_error("Failed to set socket to non-blocking\n");
     }
 }
 
@@ -148,7 +132,28 @@ NET::clientSocket::~clientSocket(){
     close(m_socket);
 }
 
-bool NET::clientSocket::sendData(const std::string &message){
+bool NET::clientSocket::connectServer() const{
+    sockaddr_in service;
+    service.sin_family = m_family;
+    inet_pton(m_family, "127.0.0.1", &service.sin_addr); // Might have to change IP as well
+    service.sin_port = htons(m_port);
+
+    if (connect(m_socket, (sockaddr*)&service, sizeof(service)) == -1){
+        std::cerr << "Unable to connect to server" << std::endl;
+        return false;
+    }
+
+    int flags = fcntl(m_socket, F_GETFL, 0);
+    if (fcntl(m_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
+        std::cerr << "Failed to set socket to non-blocking" << std::endl;
+    }
+    
+    std::cout << "Connected to server successfully" << std::endl;
+    return true;
+}
+
+bool NET::clientSocket::sendData(const std::string &message)
+{
     std::string formattedMessage = message + "$"; // Separate messages by '$'
     
     int bytesSent = send(m_socket, formattedMessage.c_str(), formattedMessage.length(), 0);
