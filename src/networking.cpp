@@ -139,6 +139,9 @@ const bool NET::serverSocket::hasMessages() const{
     return ((int)m_messageQueue.size() > 0);
 }
 
+const int NET::serverSocket::numberOfPlayers() const{
+    return (int)m_clients.size();
+}
 
 NET::clientSocket::clientSocket(int family, int type, int protocol){
     m_port = 5555; // Will have to look into this later (deployment time)

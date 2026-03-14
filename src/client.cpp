@@ -2,32 +2,6 @@
 #include "networking.hpp"
 #include "constants.hpp"
 
-struct ball{
-    float positionX;
-    float positionY;
-
-    float velocityX;
-    float velocityY;
-
-    ball(float x, float y, float vX, float vY){
-        positionX = x;
-        positionY = y;
-
-        velocityX = vX;
-        velocityY = vY;
-    }
-};
-
-struct paddle{
-    float positionX;
-    float positionY;
-
-    paddle(float x, float y){
-        positionX = x;
-        positionY = y;
-    }
-};
-
 int main(){
     NET::clientSocket client(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (client.connectServer() == false){
@@ -79,6 +53,24 @@ int main(){
             }
             else{
                 // Ball Data
+                std::vector<std::string> ballInfo;
+
+                std::string data = "";
+                for (int i = 0; i < (int)recievedData.size(); i++){
+                    if (recievedData[i] == '|'){
+                        ballInfo.push_back(data);
+                        data.clear();
+                    }
+                    else{
+                        data += recievedData[i];
+                    }
+                }
+                ballInfo.push_back(data);
+
+                gameBall.positionX = std::stof(ballInfo[0]);
+                gameBall.positionY = std::stof(ballInfo[1]);
+                gameBall.velocityX = std::stof(ballInfo[2]);
+                gameBall.velocityY = std::stof(ballInfo[3]);
             }
         }
 

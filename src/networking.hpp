@@ -52,6 +52,7 @@ namespace NET{
         bool sendMessageEveryone(const std::string& message);
         const int getPort() const;
         const bool hasMessages() const;
+        const int numberOfPlayers() const;
     };
 
     class clientSocket{
