@@ -2,7 +2,9 @@
 
 A real-time multiplayer Pong game built from scratch in **C++17** with a custom UDP client-server architecture. Uses **Raylib** for rendering and **playit.gg** for hassle-free internet hosting — no port-forwarding required.
 
-<img src="assets/screenshot.png" alt="Gameplay screenshot" width="450"/>
+<div align="center">
+  <img src="assets/screenshot.png" alt="Gameplay screenshot" width="450"/>
+</div>
 
 ---
 
