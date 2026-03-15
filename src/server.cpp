@@ -123,5 +123,7 @@ int main(){
 
         server.sendMessage(IDs[0], ballP1);
         server.sendMessage(IDs[1], ballP2);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 }

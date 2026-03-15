@@ -5,7 +5,7 @@
 
 int main(){
     NET::clientSocket client(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (client.connectServer("127.0.0.1", 5555) == false){
+    if (client.connectServer("147.185.221.180", 13088) == false){
         return 1;
     }
 
