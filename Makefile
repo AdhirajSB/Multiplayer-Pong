@@ -1,16 +1,15 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -O3 -I./include
 
-# 1. Detect which Operating System we are on
 UNAME_S := $(shell uname -s)
 
 # 2. Set the flags based on the OS
 ifeq ($(UNAME_S), Linux)
-    # LINUX FLAGS: Uses system-installed raylib
-    LIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+    # LINUX FLAGS: Points to the local linux folder
+    LIBS = -L./lib/linux -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 else
-    # MAC FLAGS: Uses your local ./lib folder and Apple Frameworks
-    LIBS = -L./lib -lraylib -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL
+    # MAC FLAGS: Points to the local mac folder
+    LIBS = -L./lib/mac -lraylib -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL
 endif
 
 # Ensure the bin directory exists
