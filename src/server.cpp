@@ -3,6 +3,13 @@
 #include "networking.hpp"
 #include "constants.hpp"
 
+void reset(ball& gameBall){
+    gameBall.positionX = screenWidth/2; 
+    gameBall.positionY = screenHeight/2;
+    gameBall.velocityX =  -100;
+    gameBall.velocityY = 0;
+}
+
 int main(){
     NET::serverSocket server(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
@@ -10,6 +17,7 @@ int main(){
     
     auto lastTime = std::chrono::high_resolution_clock::now();
 
+    std::map<int, float> playerData;
     // The server will keep track of the ball and pass that data to the players
     while (true){
         auto currentTime = std::chrono::high_resolution_clock::now();
@@ -21,14 +29,21 @@ int main(){
         gameBall.positionX += gameBall.velocityX * deltaT;
         gameBall.positionY += gameBall.velocityY * deltaT;
 
-        if (gameBall.positionX > screenWidth || gameBall.positionX < 0){
-            gameBall.velocityX = -gameBall.velocityX;
-        }
-        if (gameBall.positionY > screenHeight || gameBall.positionY < 0){
+        // if (gameBall.positionX > screenWidth - ballRadius || gameBall.positionX < ballRadius){
+        //     gameBall.velocityX = -gameBall.velocityX;
+        // }
+        if (gameBall.positionY > screenHeight - ballRadius || gameBall.positionY < ballRadius){
             gameBall.velocityY = -gameBall.velocityY;
         }
 
         server.pollNetwork();
+
+        std::vector<int> IDs = server.getIDs();
+        if (IDs.size() < 2){
+            reset(gameBall);
+            continue;
+        }
+        
         while (server.hasMessages()){
             NetworkMessage message = server.getMessage();
 
@@ -36,6 +51,8 @@ int main(){
 
             int playerID = message.client_fd;
             std::string data = message.payload;
+
+            playerData[playerID] = std::stof(data);
 
             server.sendMessageExcept(playerID, "P" + data); // Basically tell everyone the position of this player
         }
@@ -57,18 +74,25 @@ int main(){
         ballP2 += std::to_string(-gameBall.velocityX);
         ballP2 += '|';
         ballP2 += std::to_string(gameBall.velocityY);
-
-        std::vector<int> IDs = server.getIDs();
-        if (IDs.size() < 2){
-            gameBall.positionX = screenWidth/2; 
-            gameBall.positionY = screenHeight/2;
-            gameBall.velocityX =  -100;
-            gameBall.velocityY = 0;
+        
+        if (gameBall.positionX >= screenWidth - ballRadius){
+            if (gameBall.positionY + ballRadius/2 < playerData[IDs[1]] || gameBall.positionY - ballRadius/2 > playerData[IDs[1]] + paddleLength){
+                reset(gameBall);
+            }
+            else{
+                gameBall.velocityX = -gameBall.velocityX;
+            }
         }
-        else{
-            server.sendMessage(IDs[0], ballP1);
-            server.sendMessage(IDs[1], ballP2);
+        else if (gameBall.positionX <= ballRadius){
+            if (gameBall.positionY + ballRadius/2 < playerData[IDs[0]] || gameBall.positionY - ballRadius/2 > playerData[IDs[0]] + paddleLength){
+                reset(gameBall);
+            }
+            else{
+                gameBall.velocityX = -gameBall.velocityX;
+            }
         }
+        server.sendMessage(IDs[0], ballP1);
+        server.sendMessage(IDs[1], ballP2);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }

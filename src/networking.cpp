@@ -52,7 +52,9 @@ void NET::serverSocket::pollNetwork(){
 
         if (playerID == 0 && (int)m_clients.size() < 2){
             m_clients.push_back(clientAddr);
-            m_clientID[clientAddr] = (int)m_clients.size();
+
+            playerID = (int)m_clients.size();
+            m_clientID[clientAddr] = playerID;
 
             std::cout << "Player joined! Total players: " << (int)m_clients.size() << std::endl;
         }
