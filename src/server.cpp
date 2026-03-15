@@ -38,7 +38,6 @@ int main(){
             std::string data = message.payload;
 
             server.sendMessageExcept(playerID, "P" + data); // Basically tell everyone the position of this player
-
         }
 
         std::string ballData = "";
