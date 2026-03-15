@@ -66,9 +66,9 @@ namespace NET{
         clientSocket(int family, int type, int protocol);
         ~clientSocket();
 
-        bool connectServer() const;
-        NetworkMessage getData();
+        bool connectServer(const std::string& ip, int port);
         bool sendData(const std::string& message);
+        NetworkMessage getData();
     };
 }
 

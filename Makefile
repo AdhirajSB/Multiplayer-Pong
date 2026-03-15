@@ -1,19 +1,19 @@
-# Compiler and Flags
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Iinclude
-LDFLAGS = -Llib -lraylib -framework CoreVideo -framework IOKit -framework Cocoa -framework OpenGL
+CXXFLAGS = -std=c++17 -O3 -I./include
 
-# Default target when you just type 'make'
+# Ensure the bin directory exists before compiling
+$(shell mkdir -p bin)
+
+# Build both by default if you just type 'make'
 all: client server
 
-# Build the client
+# The Client links the macOS static library and your framework dependencies
 client: src/client.cpp src/networking.cpp
-	$(CXX) $(CXXFLAGS) src/client.cpp src/networking.cpp -o bin/client $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) src/client.cpp src/networking.cpp -L./lib -lraylib -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL -o bin/client
 
-# Build the server
+# The Server only compiles the standard C++ code (No Raylib!)
 server: src/server.cpp src/networking.cpp
-	$(CXX) $(CXXFLAGS) src/server.cpp src/networking.cpp -o bin/server $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) src/server.cpp src/networking.cpp -o bin/server
 
-# Clean up generated files
 clean:
 	rm -f bin/client bin/server

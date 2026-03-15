@@ -44,8 +44,9 @@ void NET::serverSocket::pollNetwork(){
     if (recievedBytes > 0){
         int playerID = 0;
         for (int i = 0; i < (int)m_clients.size(); i++) {
-            if (m_clients[i].sin_port == clientAddr.sin_port) {
-                playerID = i + 1; // Player 1 or Player 2
+            if (m_clients[i].sin_port == clientAddr.sin_port && 
+                m_clients[i].sin_addr.s_addr == clientAddr.sin_addr.s_addr) {
+                playerID = m_clientID[m_clients[i]]; // Use your map instead of i+1 to be safe
                 break;
             }
         }
@@ -59,11 +60,13 @@ void NET::serverSocket::pollNetwork(){
             std::cout << "Player joined! Total players: " << (int)m_clients.size() << std::endl;
         }
 
-        NetworkMessage message;
-        message.client_fd = playerID;
-        message.payload = std::string(buffer, recievedBytes);
+        if (playerID != 0){
+            NetworkMessage message;
+            message.client_fd = playerID;
+            message.payload = std::string(buffer, recievedBytes);
 
-        m_messageQueue.push(message);
+            m_messageQueue.push(message);
+        }
     }
 }
 
@@ -165,14 +168,32 @@ NET::clientSocket::~clientSocket(){
     close(m_socket);
 }
 
-bool NET::clientSocket::connectServer() const{
+bool NET::clientSocket::connectServer(const std::string& ip, int port) {
+    sockaddr_in destAddr;
+    destAddr.sin_family = m_family;
+    inet_pton(m_family, ip.c_str(), &destAddr.sin_addr);
+    destAddr.sin_port = htons(port);
+
+    // "Connecting" a UDP socket sets the default peer address for send/recv
+    if (connect(m_socket, (sockaddr*)&destAddr, sizeof(destAddr)) == -1) {
+        std::cerr << "Failed to connect UDP socket" << std::endl;
+        return false;
+    }
+
     int flags = fcntl(m_socket, F_GETFL, 0);
     if (fcntl(m_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
         std::cerr << "Failed to set socket to non-blocking" << std::endl;
+        return false;
     }
     
-    std::cout << "Client socket initialized and ready to send UDP packets!" << std::endl;
+    std::cout << "Client socket ready to send to " << ip << ":" << port << std::endl;
     return true;
+}
+
+bool NET::clientSocket::sendData(const std::string &message) {
+    // Because we called connect(), we can just use send() directly!
+    int bytesSent = send(m_socket, message.c_str(), message.length(), 0);
+    return (bytesSent != -1);
 }
 
 NetworkMessage NET::clientSocket::getData(){
@@ -187,16 +208,4 @@ NetworkMessage NET::clientSocket::getData(){
     }
 
     return msg;
-}
-
-bool NET::clientSocket::sendData(const std::string &message) {
-    // We recreate the destination address right here
-    sockaddr_in destAddr;
-    destAddr.sin_family = m_family;
-    inet_pton(m_family, "127.0.0.1", &destAddr.sin_addr);
-    destAddr.sin_port = htons(m_port);
-
-    int bytesSent = sendto(m_socket, message.c_str(), message.length(), 0, (sockaddr*)&destAddr, sizeof(destAddr));
-
-    return (bytesSent != -1);
 }
