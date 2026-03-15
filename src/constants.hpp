@@ -27,10 +27,10 @@ struct paddle{
     }
 };
 
-inline constexpr const int screenWidth = 480;
-inline constexpr const int screenHeight = 360;
-inline constexpr const int paddleLength = 50;
-inline constexpr const int paddleWidth = 10;
-inline constexpr const float ballRadius = 10.0f;
+inline constexpr const int screenWidth = 600;
+inline constexpr const int screenHeight = 800;
+inline constexpr const int paddleLength = 90;
+inline constexpr const int paddleWidth = 12;
+inline constexpr const float ballRadius = 14.0f;
 
 #endif

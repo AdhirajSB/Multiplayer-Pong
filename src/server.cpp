@@ -3,10 +3,11 @@
 #include "networking.hpp"
 #include "constants.hpp"
 
+int turn = 0;
 void reset(ball& gameBall){
     gameBall.positionX = screenWidth/2; 
     gameBall.positionY = screenHeight/2;
-    gameBall.velocityX =  -100;
+    gameBall.velocityX =  (turn == 0 ? 150 : -150);
     gameBall.velocityY = 0;
 }
 
@@ -17,8 +18,10 @@ int main(){
     
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    std::map<int, float> playerData;
-    // The server will keep track of the ball and pass that data to the players
+    std::map<int, std::pair<float, float>> playerData; // playerID -> (currentPos, previousPos)
+
+
+
     while (true){
         auto currentTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> elapsedTime = currentTime - lastTime;
@@ -29,9 +32,6 @@ int main(){
         gameBall.positionX += gameBall.velocityX * deltaT;
         gameBall.positionY += gameBall.velocityY * deltaT;
 
-        // if (gameBall.positionX > screenWidth - ballRadius || gameBall.positionX < ballRadius){
-        //     gameBall.velocityX = -gameBall.velocityX;
-        // }
         if (gameBall.positionY > screenHeight - ballRadius || gameBall.positionY < ballRadius){
             gameBall.velocityY = -gameBall.velocityY;
         }
@@ -52,10 +52,56 @@ int main(){
             int playerID = message.client_fd;
             std::string data = message.payload;
 
-            playerData[playerID] = std::stof(data);
+            if (playerData.find(playerID) != playerData.end()){
+                playerData[playerID].second = playerData[playerID].first;
+                playerData[playerID].first = std::stof(data);
+            }
+            else{
+                playerData[playerID].first = std::stof(data);
+                playerData[playerID].second = std::stof(data);
+            }
 
             server.sendMessageExcept(playerID, "P" + data); // Basically tell everyone the position of this player
         }
+        
+        if (gameBall.positionX + ballRadius >= screenWidth - paddleWidth){
+            if (gameBall.positionY + ballRadius/2 < playerData[IDs[1]].first || gameBall.positionY - ballRadius/2 > playerData[IDs[1]].first + paddleLength){
+                reset(gameBall);
+                turn = 1 - turn;
+            }
+            else{
+                float paddleCenter = (playerData[IDs[1]].first + paddleLength/2.0f);
+                float delta = gameBall.positionY - paddleCenter;
+                float normalized = delta / (paddleLength / 2.0f);
+
+
+                gameBall.velocityX = -gameBall.velocityX;
+                gameBall.velocityX *= 1.1f;
+
+                gameBall.velocityY = normalized * 100.0f;
+                gameBall.velocityY += (playerData[IDs[1]].first - playerData[IDs[1]].second) * 3;
+            }
+        }
+        else if (gameBall.positionX <= ballRadius + paddleWidth){
+            if (gameBall.positionY + ballRadius/2 < playerData[IDs[0]].first || gameBall.positionY - ballRadius/2 > playerData[IDs[0]].first + paddleLength){
+                reset(gameBall);
+                turn = 1 - turn;
+            }
+            else{
+                float paddleCenter = (playerData[IDs[0]].first + paddleLength/2.0f);
+                float delta = gameBall.positionY - paddleCenter;
+                float normalized = delta / (paddleLength / 2.0f);
+
+                gameBall.velocityX = -gameBall.velocityX;
+                gameBall.velocityX *= 1.1f;
+
+                gameBall.velocityY = normalized * 100.0f;
+                gameBall.velocityY += (playerData[IDs[0]].first - playerData[IDs[0]].second) * 3;
+            }
+        }
+        
+        if (gameBall.velocityX > 1000.0f) gameBall.velocityX = 1000.0f;
+        if (gameBall.velocityX < -1000.0f) gameBall.velocityX = -1000.0f;
 
         std::string ballP1 = "";
         ballP1 += std::to_string(gameBall.positionX);
@@ -74,26 +120,8 @@ int main(){
         ballP2 += std::to_string(-gameBall.velocityX);
         ballP2 += '|';
         ballP2 += std::to_string(gameBall.velocityY);
-        
-        if (gameBall.positionX >= screenWidth - ballRadius){
-            if (gameBall.positionY + ballRadius/2 < playerData[IDs[1]] || gameBall.positionY - ballRadius/2 > playerData[IDs[1]] + paddleLength){
-                reset(gameBall);
-            }
-            else{
-                gameBall.velocityX = -gameBall.velocityX;
-            }
-        }
-        else if (gameBall.positionX <= ballRadius){
-            if (gameBall.positionY + ballRadius/2 < playerData[IDs[0]] || gameBall.positionY - ballRadius/2 > playerData[IDs[0]] + paddleLength){
-                reset(gameBall);
-            }
-            else{
-                gameBall.velocityX = -gameBall.velocityX;
-            }
-        }
+
         server.sendMessage(IDs[0], ballP1);
         server.sendMessage(IDs[1], ballP2);
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 }
