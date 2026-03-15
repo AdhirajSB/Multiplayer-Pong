@@ -7,7 +7,7 @@ UNAME_S := $(shell uname -s)
 # 2. Set the flags based on the OS
 ifeq ($(UNAME_S), Linux)
     # LINUX FLAGS: Uses system-installed raylib
-    LIBS = -lraylib -lGL -lm -lpthread -ldl -rt -lX11
+    LIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 else
     # MAC FLAGS: Uses your local ./lib folder and Apple Frameworks
     LIBS = -L./lib -lraylib -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL
