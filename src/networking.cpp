@@ -139,8 +139,14 @@ const bool NET::serverSocket::hasMessages() const{
     return ((int)m_messageQueue.size() > 0);
 }
 
-const int NET::serverSocket::numberOfPlayers() const{
-    return (int)m_clients.size();
+std::vector<int> NET::serverSocket::getIDs(){
+    std::vector<int> IDs;
+
+    for (int i = 0; i < (int)m_clients.size(); i++){
+        IDs.push_back(m_clientID[m_clients[i]]);
+    }
+
+    return IDs;
 }
 
 NET::clientSocket::clientSocket(int family, int type, int protocol){

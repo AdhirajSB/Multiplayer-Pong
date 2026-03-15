@@ -40,16 +40,35 @@ int main(){
             server.sendMessageExcept(playerID, "P" + data); // Basically tell everyone the position of this player
         }
 
-        std::string ballData = "";
-        ballData += std::to_string(gameBall.positionX);
-        ballData += '|';
-        ballData += std::to_string(gameBall.positionY);
-        ballData += '|';
-        ballData += std::to_string(gameBall.velocityX);
-        ballData += '|';
-        ballData += std::to_string(gameBall.velocityY);
+        std::string ballP1 = "";
+        ballP1 += std::to_string(gameBall.positionX);
+        ballP1 += '|';
+        ballP1 += std::to_string(gameBall.positionY);
+        ballP1 += '|';
+        ballP1 += std::to_string(gameBall.velocityX);
+        ballP1 += '|';
+        ballP1 += std::to_string(gameBall.velocityY);
 
-        server.sendMessageEveryone(ballData); // Tell everyone the ball data
+        std::string ballP2 = "";
+        ballP2 += std::to_string(screenWidth - gameBall.positionX);
+        ballP2 += '|';
+        ballP2 += std::to_string(gameBall.positionY);
+        ballP2 += '|';
+        ballP2 += std::to_string(-gameBall.velocityX);
+        ballP2 += '|';
+        ballP2 += std::to_string(gameBall.velocityY);
+
+        std::vector<int> IDs = server.getIDs();
+        if (IDs.size() < 2){
+            gameBall.positionX = screenWidth/2; 
+            gameBall.positionY = screenHeight/2;
+            gameBall.velocityX =  -100;
+            gameBall.velocityY = 0;
+        }
+        else{
+            server.sendMessage(IDs[0], ballP1);
+            server.sendMessage(IDs[1], ballP2);
+        }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
